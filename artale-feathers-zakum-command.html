@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>阿爾泰炎魔控制台</title>
+    <style>
+        /* 全局字體再放大 (17px -> 19px) */
+        body { font-family: 'Microsoft JhengHei', sans-serif; background: #0d0d0d; color: #e0e0e0; display: flex; flex-direction: column; align-items: center; padding: 10px; margin: 0; font-size: 19px; }
+        
+        .container { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 15px; max-width: 1400px; width: 100%; padding-bottom: 60px; }
+        .card { background: #1a1a1a; border-radius: 14px; padding: 18px; border: 1px solid #333; box-shadow: 0 4px 15px rgba(0,0,0,0.5); position: relative; }
+        .section-title { font-size: 1.3rem; color: #00e5ff; margin-bottom: 12px; border-bottom: 2px solid #00e5ff; padding-bottom: 6px; font-weight: bold; }
+        
+        .guide-img { width: 100%; border-radius: 8px; border: 2px solid #00e5ff; }
+
+        /* 30分總倒數 */
+        .battle-timer-box { background: #000; border: 2px solid #ff5252; border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 12px; }
+        .battle-time { font-size: 4.5rem; font-family: 'Courier New', monospace; color: #ff5252; font-weight: bold; }
+        .battle-status-box { min-height: 2rem; font-size: 1.3rem; margin-top: 8px; font-weight: bold; transition: color 0.3s; }
+        .pre-warning { color: #ffab00; }
+        .active-msg { color: #69f0ae; }
+        
+        .milestone-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.95rem; margin-top: 10px; }
+        .milestone { padding: 8px; border-radius: 4px; background: #222; border: 1px solid #444; transition: 0.3s; }
+        .milestone.highlight { border-color: #ffab00; color: #ffab00; background: #3e2723; } 
+        .milestone.active { border-color: #69f0ae; color: #69f0ae; background: #1b5e20; animation: blinker 1s infinite; }
+
+        /* 循環計時器 */
+        .cycle-timer-box { text-align: center; margin: 5px 0; padding: 10px; background: #262626; border-radius: 8px; }
+        .cycle-time { font-size: 3.8rem; font-family: 'Courier New', monospace; font-weight: bold; color: #fff; }
+        .cube-warning-box { height: 1.8rem; color: #76ff03; font-weight: bold; font-size: 1.2rem; text-align: center; margin-top: 5px; }
+
+        /* 技能/怪物/魔方/優先度/機制 整理 Grid */
+        .skill-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .btn-skill-tag { background: #263238; border: 1px solid #455a64; color: #e0e0e0; padding: 14px; border-radius: 8px; font-size: 1rem; cursor: pointer; text-align: center; font-weight: bold; }
+        .skill-display { background: #222; border-radius: 8px; padding: 12px; text-align: center; margin-top: 10px; min-height: 120px; }
+        .skill-icon { max-width: 180px; height: auto; border: 1px solid #444; border-radius: 4px; display: none; margin: 0 auto 10px; }
+
+        /* 八手 */
+        .hand-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .btn-hand { background: #37474f; padding: 12px 4px; font-size: 1rem; border-radius: 8px; border: 1px solid #546e7a; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100px; }
+        .hand-label { font-size: 0.8rem; margin-top: 4px; color: #00e5ff; text-align: center; }
+        .hand-status { font-size: 0.75rem; margin-top: 2px; font-weight: bold; }
+        .bad-text { color: #ff1744; animation: blinker 1s linear infinite; }
+        .good-text { color: #ffffff; }
+        .remark-box { background: #2a2a2a; border: 1px dashed #555; padding: 15px; border-radius: 6px; margin-top: 10px; font-size: 1rem; color: #ffeb3b; min-height: 5rem; line-height: 1.6; }
+        
+        /* 圖片容器 */
+        .hand-imgs { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; justify-content: center; }
+        .hand-img-item { text-align: center; width: 110px; }
+        .hand-img-item img { width: 100%; border-radius: 4px; border: 1px solid #555; }
+        .hand-img-caption { font-size: 0.8rem; color: #aaa; margin-top: 2px; }
+
+        /* 表格樣式 */
+        .role-recommend { border-top: 1px solid #444; margin-top: 20px; padding-top: 10px; }
+        .role-title { color: #ffeb3b; font-weight: bold; font-size: 1.1rem; margin-bottom: 8px; text-align: center; }
+        .info-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; margin-top: 8px; color: #e0e0e0; }
+        .info-table th { border: 1px solid #555; padding: 10px; background: #263238; color: #00e5ff; text-align: center; }
+        .info-table td { border: 1px solid #555; padding: 10px; text-align: center; vertical-align: middle; }
+        .info-table img { width: 45px; height: 45px; object-fit: cover; border-radius: 4px; border: 1px solid #777; vertical-align: middle; }
+        .point-good { color: #69f0ae; }
+        .point-bad { color: #ff8a80; }
+
+        /* 戰術提醒框 */
+        .tactic-box { background: #333; padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 0.95rem; color: #e0e0e0; line-height: 1.6; border-left: 5px solid #ffeb3b; }
+        .tactic-title { color: #ffeb3b; font-weight: bold; display: block; margin-bottom: 4px; }
+
+        /* 參考資料 */
+        .ref-list { font-size: 0.95rem; line-height: 1.8; text-align: left; }
+        .ref-item { margin-bottom: 8px; }
+        .ref-item a { color: #4fc3f7; text-decoration: none; border-bottom: 1px dotted #4fc3f7; margin-left: 5px; }
+        .ref-item a:hover { color: #fff; border-bottom: 1px solid #fff; }
+        .ref-note { margin-top: 15px; font-size: 0.85rem; color: #9e9e9e; line-height: 1.4; border-top: 1px solid #444; padding-top: 10px; }
+
+        /* 控手與黑水 */
+        .heat-ctrl { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+        .btn-step { background: #444; width: 55px; height: 55px; font-size: 1.8rem; }
+        .layer-remark { color: #ffeb3b; font-size: 1.1rem; font-weight: bold; margin-top: 10px; text-align: center; display: none; }
+        .flame-danger { background: #7f0000 !important; border-color: #ffeb3b !important; animation: heat-pulse 0.4s infinite; }
+        .time-display { font-size: 2.8rem; font-family: monospace; font-weight: bold; color: #fff; text-align: center; }
+
+        @keyframes heat-pulse { 0%, 100% { box-shadow: 0 0 5px #ff1744; } 50% { box-shadow: 0 0 20px #ff1744; } }
+        .blink { animation: blinker 0.6s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+        
+        button { border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.1s; color: white; background: #37474f; padding: 14px; font-size: 1.1rem; }
+        .btn-main { background: #2e7d32; width: 100%; margin-top: 10px; }
+        .btn-cmd { background: #263238; text-align: left; width: 100%; margin-bottom: 8px; border-left: 5px solid #00e5ff; font-size: 0.95rem; }
+        #copy-toast { position: fixed; bottom: 30px; background: #00e5ff; color: #000; padding: 15px 30px; border-radius: 40px; font-weight: bold; display: none; z-index: 9999; font-size: 1.2rem; }
+        
+        /* 強制跨欄位 Helper */
+        .col-full { grid-column: 1 / -1; }
+    </style>
+</head>
+<body>
+
+    <h2 style="color: #00e5ff; margin: 15px 0;">炎魔全功能控制台</h2>
+
+    <div class="container">
+        
+        <div class="card col-full" style="padding: 5px; border: none; background: none;">
+            <img src="https://i.meee.com.tw/ZXXWjC1.jpg" class="guide-img">
+        </div>
+
+        <div class="card col-full" style="border: 2px solid #ff5252;">
+            <div class="section-title">⏱️ 戰鬥總倒數 <span>(魔方/集合預警)</span></div>
+            <div class="battle-timer-box">
+                <div id="battle-clock" class="battle-time">30:00</div>
+                <div id="battle-status" class="battle-status-box" style="color: #aaa;">等待戰鬥開始...</div>
+            </div>
+            <div class="milestone-list">
+                <div id="ms-2800" class="milestone">28:00 (必吃)</div>
+                <div id="ms-2530" class="milestone">25:30 (必吃)</div>
+                <div id="ms-2300" class="milestone">23:00 (疊火)</div>
+                <div id="ms-2030" class="milestone">20:30 (魔方)</div>
+                <div id="ms-1800" class="milestone">18:00 (魔方)</div>
+                <div id="ms-1530" class="milestone">15:30 (魔方)</div>
+                <div id="ms-1300" class="milestone">13:00 (魔方)</div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-main" style="background:#d32f2f; flex:1" onclick="startBattle()">🔥 開始戰鬥</button>
+                <button class="btn-main" style="background:#444; flex:1" onclick="resetBattle()">🔄 重置</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title">⏱️ 綠魔方循環計時 <span>(手動)</span></div>
+            <div class="cycle-timer-box">
+                <div id="cube-timer" class="cycle-time">00:00</div>
+                <div id="cube-warning" class="cube-warning-box"></div>
+            </div>
+            <div style="font-size: 0.9rem; color: #aaa; text-align: center; margin-bottom: 5px;">
+                💡 兩顆為召喚魔方，一顆為時間魔方
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                <button class="btn-main" onclick="startCycleTimer(1)">
+                    🔄 手(2:30)
+                </button>
+                <div style="display:flex; flex-direction:column;">
+                    <button class="btn-main" style="background:#1565c0; width:100%;" onclick="startCycleTimer(2)">
+                        🔄 本體(1:30)
+                    </button>
+                    <div style="background:#222; color:#757575; font-size:0.85rem; text-align:center; padding:2px; border-radius:0 0 4px 4px; border:1px solid #333; margin-top:-2px;">
+                        2:00 (區間上限)
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="border: 2px solid #4caf50;">
+            <div class="section-title">🟩 綠魔方解說 <span>(點擊查看機制)</span></div>
+            <div class="skill-grid">
+                <button class="btn-skill-tag" onclick="showCubeInfo(1)">系統時間綠魔方</button>
+                <button class="btn-skill-tag" onclick="showCubeInfo(2)">本體機制綠魔方</button>
+            </div>
+            <div id="cube-display-area" class="remark-box" style="min-height: 120px; text-align: left;">
+                點擊上方標籤查看魔方種類與機制說明...
+            </div>
+        </div>
+
+        <div class="card" style="border: 2px solid #ff1744;">
+            <div class="section-title">🎯 討伐優先度 <span>(點擊查看對象)</span></div>
+            <div class="skill-grid" style="grid-template-columns: repeat(3, 1fr);">
+                <button class="btn-skill-tag" onclick="showPriority(1)">最高</button>
+                <button class="btn-skill-tag" onclick="showPriority(2)">次高</button>
+                <button class="btn-skill-tag" onclick="showPriority(3)">最末</button>
+            </div>
+            <div class="skill-display">
+                <img id="priority-img" src="" style="width: 90%; max-width: 400px; height: auto; border: 1px solid #444; border-radius: 6px; display: none; margin: 0 auto 8px;">
+                <div id="priority-remark" style="color: #ffeb3b; font-weight: bold; font-size: 1.1rem;">點擊上方標籤查看...</div>
+            </div>
+        </div>
+
+        <div class="card" style="border: 2px solid #e91e63;">
+            <div class="section-title">🔥 炎魔機制說明 <span>(點擊查看詳情)</span></div>
+            <div class="skill-grid" style="grid-template-columns: repeat(3, 1fr);">
+                <button class="btn-skill-tag" onclick="showMech(1)">熱能</button>
+                <button class="btn-skill-tag" onclick="showMech(2)">武器腐蝕</button>
+                <button class="btn-skill-tag" onclick="showMech(3)">防禦腐蝕</button>
+            </div>
+            <div class="skill-display">
+                <img id="mech-img" src="" style="max-width: 140px; display:none; margin: 0 auto 8px;">
+                <div id="mech-remark" style="color: #ffeb3b; font-size: 1rem; text-align: left; line-height: 1.6; padding: 5px;">點擊上方標籤查看機制...</div>
+            </div>
+        </div>
+
+        <div class="card col-full" style="border: 2px solid #00e5ff;">
+            <div class="section-title">👾 八手機制提醒 <span>(點擊手位顯示備註)</span></div>
+            <div class="hand-grid">
+                <button class="btn-hand" onclick="showHandRemark(1)">1 手<span class="hand-label">冰火坑手</span><span class="hand-status good-text">(好手)</span></button>
+                <button class="btn-hand" onclick="showHandRemark(2)">2 手<span class="hand-label">銷技手</span><span class="hand-status bad-text">(壞手)</span></button>
+                <button class="btn-hand" onclick="showHandRemark(3)">3 手<span class="hand-label">武器腐蝕手</span><span class="hand-status bad-text">(壞手)</span></button>
+                <button class="btn-hand" onclick="showHandRemark(4)">4 手<span class="hand-label">紅藍印手</span><span class="hand-status bad-text">(壞手)</span></button>
+                <button class="btn-hand" onclick="showHandRemark(5)">5 手<span class="hand-label">隕石手</span><span class="hand-status bad-text">(壞手)</span></button>
+                <button class="btn-hand" onclick="showHandRemark(6)">6 手<span class="hand-label">無作用手</span><span class="hand-status good-text">(好手)</span></button>
+                <button class="btn-hand" onclick="showHandRemark(7)">7 手<span class="hand-label">雷電手</span><span class="hand-status good-text">(好手)</span></button>
+                <button class="btn-hand" onclick="showHandRemark(8)">8 手<span class="hand-label">紅藍印手</span><span class="hand-status bad-text">(壞手)</span></button>
+            </div>
+            <div id="hand-remark-content" class="remark-box">點擊手臂按鈕查看機制細節...</div>
+        </div>
+
+        <div class="card" style="border: 2px solid #ffa000;">
+            <div class="section-title">📊 技能顯示整理 <span>(點擊查看圖示)</span></div>
+            <div class="skill-grid">
+                <button class="btn-skill-tag" onclick="showSkill(1)">疊火：火圈</button>
+                <button class="btn-skill-tag" onclick="showSkill(2)">火檢：雷電</button>
+                <button class="btn-skill-tag" onclick="showSkill(3)">火檢：紅印</button>
+                <button class="btn-skill-tag" onclick="showSkill(4)">火檢：火柱</button>
+                <button class="btn-skill-tag" onclick="showSkill(5)">火檢：三角</button>
+                <button class="btn-skill-tag" onclick="showSkill(6)">防檢：圓圈</button>
+                <button class="btn-skill-tag" onclick="showSkill(7)">陷阱：黑水</button>
+            </div>
+            <div class="skill-display">
+                <img id="skill-icon-img" src="" class="skill-icon">
+                <div id="skill-remark" style="color: #ffeb3b; font-weight: bold; font-size: 1.1rem;">點擊上方標籤查看...</div>
+            </div>
+        </div>
+
+        <div class="card" style="border: 2px solid #9c27b0;">
+            <div class="section-title">👾 怪物作用整理 <span>(點擊查看細節)</span></div>
+            <div class="skill-grid">
+                <button class="btn-skill-tag" onclick="showMonster(1)">本體：冰塊寶貝</button>
+                <button class="btn-skill-tag" onclick="showMonster(2)">本體：魔精靈</button>
+            </div>
+            <div class="skill-display">
+                <img id="monster-icon-img" src="" class="skill-icon">
+                <div id="monster-remark" style="color: #ffeb3b; font-weight: bold; font-size: 1.1rem;">點擊上方標籤查看...</div>
+            </div>
+        </div>
+
+        <div id="calc-card" class="card">
+            <div class="section-title">⚖️ 控手計算</div>
+            <div class="tactic-box">
+                <span class="tactic-title">⚠️ 注意事項：</span>
+                1. 站左側小平台輸出<br>
+                2. 控制 234 手在三階前消失<br>
+                3. 不讓 5 手進三階
+            </div>
+            <label style="font-size:1rem;">基準拆手時間 (分):</label>
+            <input type="number" id="base-min" value="6.5" step="0.1" oninput="calculateHandTime()" style="background:#222; color:#fff; border:1px solid #444; width:100%; padding:8px; border-radius:4px; font-size:1.1rem;">
+            <div class="heat-ctrl">
+                <button class="btn btn-step" onclick="adjustHeat(-1)">-</button>
+                <select id="current-heat" onchange="calculateHandTime()" style="flex:1; background:#222; color:#fff; height:55px; font-size:1.1rem;"></select>
+                <button class="btn btn-step" onclick="adjustHeat(1)">+</button>
+            </div>
+            <div id="layer-remark" class="layer-remark">💡 盡量控制在 9 層</div>
+            <div id="flame-warning" class="danger-banner blink">💀 10 層極限預警：下一層即死 💀</div>
+            <div style="background: #1a237e; border: 1px solid #00e5ff; padding: 10px; border-radius: 6px; text-align: center; margin-top: 10px;">
+                <div id="suggested-time" class="time-display" style="color:#ffeb3b;">--:--</div>
+            </div>
+            <button class="btn-main" onclick="sendCalcMsg()">📢 發送控手指令</button>
+
+            <div class="role-recommend">
+                <div class="role-title">👑 最佳控手：黑騎士 &nbsp;&nbsp;|&nbsp;&nbsp; ⚔️ 次佳控手：聖騎士</div>
+                <table class="info-table">
+                    <thead>
+                        <tr>
+                            <th>項目</th>
+                            <th>龍騎</th>
+                            <th>騎士</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>對本體 DPM</td>
+                            <td class="point-good">幾乎不降</td>
+                            <td class="point-bad">稍降</td>
+                        </tr>
+                        <tr>
+                            <td>同時出 234</td>
+                            <td class="point-bad">容易吃火柱</td>
+                            <td class="point-good">打的到本體</td>
+                        </tr>
+                        <tr>
+                            <td>控 5 手</td>
+                            <td class="point-bad">容易邊控邊吃火柱</td>
+                            <td class="point-good">可反盾省水</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card" style="border: 2px solid #d32f2f;">
+            <div class="section-title">🔢 黑水技能計數 <span>(嘴巴判定)</span></div>
+            <div style="text-align: center; margin-bottom: 10px;">
+                <img src="https://i.meee.com.tw/vfIknB7.jpg" alt="炎魔張嘴示意圖" style="max-width: 100%; border-radius: 6px; border: 1px solid #d32f2f;">
+                <div style="font-size: 0.9rem; color: #aaa; margin-top: 2px;">(炎魔張嘴示意圖)</div>
+            </div>
+            <div style="display: flex; gap: 5px; margin-bottom: 8px;">
+                <button id="p12" class="btn" style="flex:1; background:#0288d1" onclick="setPhase(5, 'p12')">一/二階 (1-5循環)</button>
+                <button id="p3" class="btn" style="flex:1" onclick="setPhase(6, 'p3')">三階 (1-6循環)</button>
+            </div>
+            <div class="timer-box">
+                <div id="skill-count" class="time-display">0</div>
+                <div id="count-msg" style="color:#ffeb3b; font-weight:bold; margin-top:5px; display:none;" class="blink"></div>
+            </div>
+            <button onclick="addCount()" class="btn-main" style="background:#d32f2f">⚡ 偵測到技能</button>
+            <button onclick="copyCmd('嘴巴開了！全體掛繩子避難！')" class="btn-cmd" style="margin-top:8px;">📢 手動發送指令</button>
+        </div>
+
+        <div class="card col-full" style="border: 1px solid #757575;">
+            <div class="section-title">📚 參考資料來源出處</div>
+            <div class="ref-list">
+                <div class="ref-item">
+                    1. Youtube 基德薯叔_殘暴炎魔全攻略：
+                    <a href="https://youtu.be/nfdC4ng_Rxs?si=uXV2XZwWmTAi0BmN" target="_blank">點擊觀看</a>
+                </div>
+                <div class="ref-item">
+                    2. 巴哈姆特_卡祖迪炎魔機制介紹：
+                    <a href="https://forum.gamer.com.tw/C.php?bsn=79354&snA=7931" target="_blank">點擊查看</a>
+                </div>
+                <div class="ref-item">
+                    3. 巴哈姆特_Tsuna穩通炎魔實戰分享：
+                    <a href="https://forum.gamer.com.tw/C.php?bsn=79354&snA=8936" target="_blank">點擊查看</a>
+                </div>
+                <div class="ref-item">
+                    4. Threads 脆友分享：
+                    <a href="https://ppt.cc/f3FT3x" target="_blank">點擊查看</a>
+                </div>
+            </div>
+            <div class="ref-note">
+                P.S: 詳細可以參考以上出處，如果有侵權的部分請告知我，再進行修改。如果有熱情網友可以提供意見，可以再進一步精進及修正，感謝大家。
+            </div>
+        </div>
+
+    </div>
+
+    <div id="copy-toast">指令已複製</div>
+
+    <script>
+        // --- 綠魔方計時器 ---
+        let cycleTimer;
+        function startCycleTimer(mode) {
+            clearInterval(cycleTimer);
+            const display = document.getElementById('cube-timer');
+            const warningBox = document.getElementById('cube-warning');
+            
+            let targetSeconds = (mode === 1) ? 150 : 90;
+            let limitSeconds = (mode === 1) ? 150 : 120;
+            let elapsedTime = 0;
+
+            display.classList.remove('blink');
+            warningBox.innerText = "";
+
+            cycleTimer = setInterval(() => {
+                elapsedTime++;
+                let remainingForDisplay = targetSeconds - elapsedTime;
+
+                if (remainingForDisplay >= 0) {
+                    let m = Math.floor(remainingForDisplay / 60).toString().padStart(2, '0');
+                    let s = (remainingForDisplay % 60).toString().padStart(2, '0');
+                    display.innerText = `${m}:${s}`;
+                } else {
+                    display.innerText = "⚠️ 警戒期";
+                }
+
+                let showWarning = false;
+                if (mode === 1) {
+                    if (remainingForDisplay <= 10 && remainingForDisplay > 0) showWarning = true;
+                } else {
+                    if ((targetSeconds - elapsedTime) <= 10 && elapsedTime < limitSeconds) showWarning = true;
+                }
+
+                if (showWarning) {
+                    display.classList.add('blink'); display.style.color = '#76ff03';
+                    warningBox.innerText = "🟩 綠魔方出現預警！"; warningBox.classList.add('blink');
+                } else {
+                    display.classList.remove('blink'); display.style.color = '#fff';
+                    warningBox.innerText = ""; warningBox.classList.remove('blink');
+                }
+
+                if (elapsedTime >= limitSeconds) {
+                    clearInterval(cycleTimer);
+                    display.innerText = "00:00"; display.style.color = "#aaa";
+                    warningBox.innerText = "區間結束"; warningBox.classList.remove('blink');
+                }
+            }, 1000);
+        }
+
+        // --- 綠魔方解說 (強制 ID 1 與 2 顯示邏輯一致) ---
+        const cubeData = {
+            1: {
+                imgs: ["https://i.meee.com.tw/55zy1dg.jpg"],
+                text: "<b>備註：</b>系統時間魔方出現頻率在手階段時為每2分半-2分40秒出現一次，本體階段為1分半至2分鐘。"
+            },
+            2: {
+                imgs: ["https://i.meee.com.tw/aQ6mIdQ.jpg", "https://i.meee.com.tw/dBRl0fN.jpg"],
+                text: "<b>備註：</b>分辨方式為本體召喚魔方一次會出現兩顆。本體召喚出綠魔方後，一二階需要開始計算本體所施放的技能次數，在第5次時會出現黑水，第三階時在第6次時會出現黑水。",
+                caption: "(本體綠魔方示意圖)"
+            }
+        };
+
+        function showCubeInfo(id) {
+            const container = document.getElementById('cube-display-area');
+            const data = cubeData[id];
+            let html = `<div style="margin-bottom:10px; font-size:1rem; color:#fff; line-height:1.5;">${data.text}</div>`;
+            
+            // 統一使用垂直大圖排列
+            html += `<div style="display:flex; flex-direction:column; align-items:center; gap:10px;">`;
+            data.imgs.forEach(url => {
+                html += `<img src="${url}" style="width:90%; max-width:400px; border:1px solid #555; border-radius:6px;">`;
+            });
+            if(data.caption) html += `<div style="font-size:0.9rem; color:#aaa;">${data.caption}</div>`;
+            html += `</div>`;
+            
+            container.innerHTML = html;
+        }
+
+        // --- 炎魔機制說明 ---
+        const mechData = {
+            1: {
+                img: "https://i.meee.com.tw/iuzXMOd.png",
+                text: `
+                    <div style='font-weight:bold; color:#ffeb3b; margin-bottom:5px;'>熱能 (傷害提升)</div>
+                    1. 每層增傷 8%<br>2. 上限 10 層<br>3. 3/4/7/8 手有熱能檢驗機制<br>4. 11 層以上火焰檢測秒殺<br>5. 法師效果減半
+                    <table class='info-table' style='margin-top:8px;'>
+                        <thead><tr><th>部位</th><th>機制</th><th>層數</th><th>圖標</th></tr></thead>
+                        <tbody>
+                            <tr><td>1號手</td><td>火坑</td><td>2層</td><td><img src='https://i.meee.com.tw/1aS1ROb.jpg'></td></tr>
+                            <tr><td>4/8號手</td><td>紅印</td><td>1層</td><td><img src='https://i.meee.com.tw/BNM3HdD.jpg'></td></tr>
+                        </tbody>
+                    </table>
+                `
+            },
+            2: {
+                img: "https://i.meee.com.tw/swNaVJN.png",
+                text: `
+                    <div style='font-weight:bold; color:#ffeb3b; margin-bottom:5px;'>武器腐蝕 (傷害下降)</div>
+                    1. 降低表攻<br>2. 10 層傷害近乎歸零<br>3. >5 層建議吃魔方<br>4. 可預判撞手卡無敵<br>5. 影響物理，對法師影響不大<br>6. 無檢測機制
+                    <table class='info-table' style='margin-top:8px;'>
+                        <thead><tr><th>部位</th><th>機制</th><th>層數</th><th>圖標</th></tr></thead>
+                        <tbody>
+                            <tr><td>3號手</td><td>腐蝕</td><td>1層</td><td><img src='https://i.meee.com.tw/f4A3Bm0.jpg'></td></tr>
+                            <tr><td>5號手</td><td>落石</td><td>1層</td><td><img src='https://i.meee.com.tw/VOkxHvz.jpg'></td></tr>
+                            <tr><td>本體</td><td>-</td><td>3層</td><td><img src='https://i.meee.com.tw/vfIknB7.jpg'></td></tr>
+                            <tr><td>本體</td><td>魔精靈</td><td>1層</td><td><img src='https://i.meee.com.tw/1miTJbA.jpg'></td></tr>
+                        </tbody>
+                    </table>
+                `
+            },
+            3: {
+                img: "https://i.meee.com.tw/qvMhyW4.png",
+                text: `
+                    <div style='font-weight:bold; color:#ffeb3b; margin-bottom:5px;'>防禦腐蝕 (防禦下降)</div>
+                    1. 受傷提高<br>2. 敏職疊加至 6 層將死亡<br>3. >7 層防禦檢測秒殺
+                    <table class='info-table' style='margin-top:8px;'>
+                        <thead><tr><th>部位</th><th>機制</th><th>層數</th><th>圖標</th></tr></thead>
+                        <tbody>
+                            <tr><td>4/8號手</td><td>藍印</td><td>1層</td><td><img src='https://i.meee.com.tw/U8hhTX3.jpg'></td></tr>
+                            <tr><td>5號手</td><td>落石</td><td>1層</td><td><img src='https://i.meee.com.tw/VOkxHvz.jpg'></td></tr>
+                            <tr><td>本體</td><td>-</td><td>3層</td><td><img src='https://i.meee.com.tw/vfIknB7.jpg'></td></tr>
+                            <tr><td>本體</td><td>魔精靈</td><td>1層</td><td><img src='https://i.meee.com.tw/1miTJbA.jpg'></td></tr>
+                        </tbody>
+                    </table>
+                `
+            }
+        };
+        function showMech(id) {
+            const img = document.getElementById('mech-img');
+            img.src = mechData[id].img;
+            img.style.display = 'block';
+            document.getElementById('mech-remark').innerHTML = mechData[id].text;
+        }
+
+        // --- 討伐優先度 ---
+        const priorityData = {
+            1: { img: "https://i.meee.com.tw/PVHW3Mf.jpg", text: "優先級：最高 (必打)" },
+            2: { img: "https://i.meee.com.tw/rZm62Hx.jpg", text: "優先級：次高" },
+            3: { img: "https://i.meee.com.tw/jox3UNN.jpg", text: "優先級：最末" }
+        };
+        function showPriority(id) {
+            const img = document.getElementById('priority-img');
+            img.src = priorityData[id].img;
+            img.style.display = 'block';
+            document.getElementById('priority-remark').innerText = priorityData[id].text;
+        }
+
+        // --- 30分鐘總倒數邏輯 ---
+        let battleTimer; let totalSec = 1800;
+        const milestones = [
+            { t: 1680, id: "ms-2800", msg: "28:00 固定魔方必吃！" },
+            { t: 1530, id: "ms-2530", msg: "25:30 固定魔方必吃！" },
+            { t: 1380, id: "ms-2300", msg: "23:00 不吃方塊，開始疊火！" },
+            { t: 1230, id: "ms-2030", msg: "20:30 固定魔方出現！" },
+            { t: 1080, id: "ms-1800", msg: "18:00 固定魔方出現！" },
+            { t: 930, id: "ms-1530", msg: "15:30 固定魔方出現！" },
+            { t: 780, id: "ms-1300", msg: "13:00 最後固定魔方！" }
+        ];
+        function startBattle() {
+            clearInterval(battleTimer);
+            battleTimer = setInterval(() => {
+                if(totalSec <= 0) { clearInterval(battleTimer); return; }
+                totalSec--; updateBattleClock(); checkMilestones();
+            }, 1000);
+        }
+        function checkMilestones() {
+            const statusEl = document.getElementById('battle-status');
+            const listEl = document.querySelectorAll('.milestone');
+            let activeFound = false;
+            for (let ms of milestones) {
+                const diff = totalSec - ms.t;
+                const el = document.getElementById(ms.id);
+                if (diff > 0 && diff <= 10) {
+                    el.classList.add('highlight');
+                    statusEl.innerHTML = `⚠️ <span class="pre-warning">請停下攻擊往中間集合等待綠魔方出現</span> (${diff}秒)`;
+                    statusEl.className = "battle-status-box blink";
+                    if(diff === 10) copyCmd("請停下攻擊往中間集合等待綠魔方出現");
+                    activeFound = true; break;
+                }
+                if (diff <= 0 && diff > -5) {
+                    el.classList.remove('highlight'); el.classList.add('active');
+                    statusEl.innerHTML = `✅ <span class="active-msg">${ms.msg}</span>`;
+                    statusEl.className = "battle-status-box";
+                    if(diff === 0) copyCmd(ms.msg);
+                    activeFound = true; break;
+                }
+                if (diff === -5) el.classList.remove('active');
+            }
+            if (!activeFound) {
+                statusEl.innerHTML = "戰鬥進行中..."; statusEl.className = "battle-status-box";
+                listEl.forEach(e => { if(!e.classList.contains('active')) e.classList.remove('highlight'); });
+            }
+        }
+        function updateBattleClock() {
+            const m = Math.floor(totalSec / 60).toString().padStart(2, '0');
+            const s = (totalSec % 60).toString().padStart(2, '0');
+            document.getElementById('battle-clock').innerText = `${m}:${s}`;
+        }
+        function resetBattle() { clearInterval(battleTimer); totalSec = 1800; updateBattleClock(); document.getElementById('battle-status').innerText = "等待戰鬥開始..."; document.querySelectorAll('.milestone').forEach(el => el.classList.remove('active', 'highlight')); }
+
+        // --- 技能圖示 ---
+        const skillData = {
+            1: { img: "https://i.meee.com.tw/ZUc5hJl.jpg", text: "火圈：鏢賊先吃，無檢測。" },
+            2: { img: "https://i.meee.com.tw/YpaZreO.jpg", text: "7手雷電：無反應時間，秒殺。" },
+            3: { img: "https://i.meee.com.tw/BgiiVIM.jpg", text: "紅印：4/8手，反應時間短。" },
+            4: { img: "https://i.meee.com.tw/SvsJjNK.jpg", text: "火柱：本體，有手就能躲。" },
+            5: { img: "https://i.meee.com.tw/3Dn3qAX.jpg", text: "三角：本體，反應時間短。" },
+            6: { img: "https://i.meee.com.tw/lxrkzlk.jpg", text: "圓圈(防檢)：本體，反應時間短。" },
+            7: { img: "https://i.meee.com.tw/bcVe4Wb.jpg", text: "在地板出現紫色特效，幾秒後爆炸。<b>若被擊中，雙腐蝕各+5層！</b>(此機制有固定模式)" }
+        };
+        function showSkill(id) { document.getElementById('skill-icon-img').src = skillData[id].img; document.getElementById('skill-icon-img').style.display = 'block'; document.getElementById('skill-remark').innerHTML = skillData[id].text; }
+
+        // --- 怪物圖鑑 ---
+        const monsterData = {
+            1: { img: "https://i.meee.com.tw/N9M0fvp.jpg", text: "本體階段隨時召喚，碰撞傷害後可以清除熱能層數 (請勿殺害，很有用！)" },
+            2: { img: "https://i.meee.com.tw/1miTJbA.jpg", text: "本體魔精靈只能法師攻擊 (物理無效)。碰撞會疊加腐蝕！法師需第一時間清空 1 樓。" }
+        };
+        function showMonster(id) { document.getElementById('monster-icon-img').src = monsterData[id].img; document.getElementById('monster-icon-img').style.display = 'block'; document.getElementById('monster-remark').innerText = monsterData[id].text; }
+
+        // --- 八手機制 ---
+        const handRemarks = {
+            1: `<b>1 手 (冰火坑手)：</b>暈眩、火坑(+2熱量)、冰坑(歸零)。(好手)<div class='hand-imgs'><div class='hand-img-item'><img src='https://i.meee.com.tw/1aS1ROb.jpg'><div class='hand-img-caption'>火坑</div></div><div class='hand-img-item'><img src='https://i.meee.com.tw/cOwWnAj.jpg'><div class='hand-img-caption'>冰坑</div></div></div>`,
+            2: `<b>2 手 (銷技手)：</b>虛弱、消技、亡靈、封印。<b>要預設消技可能，法師/龍騎/刀賊要立刻補魔心/聖火/錢盾。</b>`,
+            3: `<b>3 手 (武器腐蝕手)：</b>增加武器腐蝕。<b>建議預判撞手卡無敵禎，腐蝕 5 層以上建議吃魔方。</b><div class='hand-imgs'><div class='hand-img-item'><img src='https://i.meee.com.tw/f4A3Bm0.jpg'><div class='hand-img-caption'>腐蝕發動</div></div></div>`,
+            4: `<b>4 手 (紅藍印手)：</b><br>藍印：防腐+1，反應長。<br>紅印：熱能+1，11層火檢。⚠️長技能小心。<div class='hand-imgs'><div class='hand-img-item'><img src='https://i.meee.com.tw/BNM3HdD.jpg'><div class='hand-img-caption'>紅印前兆</div></div><div class='hand-img-item'><img src='https://i.meee.com.tw/IiGRqVD.jpg'><div class='hand-img-caption'>紅印攻擊</div></div><div class='hand-img-item'><img src='https://i.meee.com.tw/U8hhTX3.jpg'><div class='hand-img-caption'>藍印前兆</div></div><div class='hand-img-item'><img src='https://i.meee.com.tw/UNiDnFf.jpg'><div class='hand-img-caption'>藍印攻擊</div></div><div class='hand-img-item'><img src='https://i.meee.com.tw/bJxXr84.jpg'><div class='hand-img-caption'>護甲腐蝕</div></div></div>`,
+            5: `<b>5 手 (隕石手)：</b>暈眩/落石(雙腐蝕+1)。<b>地板發光後落石，務必躲避。</b><div class='hand-imgs'><div class='hand-img-item'><img src='https://i.meee.com.tw/hmZBc04.jpg'><div class='hand-img-caption'>AOE暈眩</div></div><div class='hand-img-item'><img src='https://i.meee.com.tw/VOkxHvz.jpg'><div class='hand-img-caption'>雙腐蝕+1</div></div></div>`,
+            6: `<b>6 手 (無作用手)：</b>卡無敵工具人。`,
+            7: `<b>7 手 (雷電手)：</b>雷電火檢(11層)。偵測即發動，無反應時間。`,
+            8: `<b>8 手 (紅藍印手)：</b>同 4 手機制。<div class='hand-imgs'><div class='hand-img-item'><img src='https://i.meee.com.tw/BNM3HdD.jpg'><div class='hand-img-caption'>紅印前兆</div></div><div class='hand-img-item'><img src='https://i.meee.com.tw/U8hhTX3.jpg'><div class='hand-img-caption'>藍印前兆</div></div></div>`
+        };
+        function showHandRemark(num) { document.getElementById('hand-remark-content').innerHTML = handRemarks[num]; }
+
+        // --- 控手計算機邏輯 ---
+        const heatSelect = document.getElementById('current-heat');
+        for (let i = 0; i <= 10; i++) { let opt = document.createElement('option'); opt.value = i; opt.innerHTML = `${i} 層 (+${i * 8}%)`; if (i === 0) opt.selected = true; heatSelect.appendChild(opt); }
+        function adjustHeat(val) { let n = parseInt(heatSelect.value) + val; if (n > 10) n = 0; else if (n < 0) n = 10; heatSelect.value = n; calculateHandTime(); }
+        function calculateHandTime() {
+            const b = parseFloat(document.getElementById('base-min').value);
+            const h = parseInt(heatSelect.value);
+            const card = document.getElementById('calc-card');
+            const rem = document.getElementById('layer-remark');
+            const warn = document.getElementById('flame-warning');
+            rem.style.display = (h === 9) ? 'block' : 'none';
+            if (h >= 10) { card.classList.add('flame-danger'); warn.style.display = 'block'; } else { card.classList.remove('flame-danger'); warn.style.display = 'none'; }
+            const t = Math.round((b / (1 + (h * 0.08))) * 60) + 30;
+            document.getElementById('suggested-time').innerText = `${Math.floor(t/60).toString().padStart(2, '0')}:${(t%60).toString().padStart(2, '0')}`;
+            window.lastCalc = `${Math.floor(t/60)}分${t%60}秒`;
+        }
+        function sendCalcMsg() { copyCmd(`控手提醒：建議剩餘 ${window.lastCalc} 時動手！`); }
+
+        // --- 黑水計數 ---
+        let currentCount = 0; let maxCount = 5;
+        function setPhase(n, id) { 
+            maxCount = n; 
+            currentCount = 0; 
+            updateCountDisplay();
+            document.getElementById('p12').style.background = (n===5)?'#0288d1':'#37474f'; 
+            document.getElementById('p3').style.background = (n===6)?'#0288d1':'#37474f'; 
+        }
+        function resetCount() { currentCount = 0; updateCountDisplay(); }
+        function addCount() {
+            currentCount++;
+            if(currentCount > maxCount) currentCount = 1;
+            updateCountDisplay();
+        }
+        function updateCountDisplay() {
+            const el = document.getElementById('skill-count');
+            const msg = document.getElementById('count-msg');
+            el.innerText = currentCount;
+            
+            msg.style.display = 'none';
+            el.classList.remove('blink');
+            el.style.color = '#fff';
+
+            if (currentCount === maxCount - 1) {
+                msg.innerText = "⚠️ 下一次需要閃避"; msg.style.display = 'block'; msg.style.color = '#ffeb3b';
+                el.classList.add('blink'); el.style.color = '#ffeb3b';
+                copyCmd("下一次黑水！準備掛繩子！");
+            }
+            else if (currentCount === maxCount) {
+                msg.innerText = "🌊 黑水施放！掛繩子！"; msg.style.display = 'block'; msg.style.color = '#ff1744';
+                el.classList.add('blink'); el.style.color = '#ff1744';
+                copyCmd("黑水施放！全體掛繩子！");
+            }
+        }
+
+        function copyCmd(text) { navigator.clipboard.writeText(text).then(() => { const toast = document.getElementById('copy-toast'); toast.innerText = `已複製：${text}`; toast.style.display = 'block'; setTimeout(() => toast.style.display = 'none', 2000); }); }
+        calculateHandTime();
+    </script>
+</body>
+</html>
